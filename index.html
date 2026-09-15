@@ -306,34 +306,27 @@
   </div> 
  
   <script> 
-    // Čist bazni URL bez lepljenja parametara direktno u string
-    const GOOGLE_SCRIPT_URL = "https://google.com"; 
+    // VAŽNO: JSONP zahteva funkciju definisanu na globalnom nivou
+    window.obradiRezultateSaGooglea = function(results) { 
+      renderLive(results); 
  
-    const CATEGORIES = [ 
-      "Žene - Pištolj", 
-      "Žene - Revolver", 
-      "Žene - MK pištolj/revolver", 
-      "Muškarci - Pištolj", 
-      "Muškarci - Revolver", 
-      "Muškarci - MK pištolj/revolver" 
-    ]; 
- 
-    // Glavna funkcija za povlačenje podataka sa rešenim CORS problemom
+      const status = document.getElementById("liveStatus"); 
+      if (status) { 
+        status.textContent = "Poslednje osvežavanje: " + new Date().toLocaleTimeString("sr-RS"); 
+      } 
+    };
+
     async function loadResults() { 
       try { 
-        // Generisanje ispravnog URL-a sa parametrima za eksterne zahteve
-        const finalUrl = `${GOOGLE_SCRIPT_URL}?get_json=1`;
-
-        const response = await fetch(finalUrl, {
-          method: "GET",
-          mode: "cors",
-          headers: {
-            "Content-Type": "text/plain"
-          }
-        }); 
-        
-        if (!response.ok) {
-          throw new Error("Mrežni odgovor nije bio u redu.");
+        // Uklanjamo prethodni script tag ako postoji od prošlog refresha
+        const stariScript = document.getElementById("jsonp-skripta");
+        if (stariScript) {
+          stariScript.remove();
         }
 
-        const results = await response.json(); 
+        // Kreiramo dinamički script tag koji zaobilazi CORS filtere pretraživača
+        const script = document.createElement("script");
+        script.id = "jsonp-skripta";
+        script.src = "https://google.com"; 
+        
+        script.onerror = function() {
