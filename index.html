@@ -306,7 +306,8 @@
   </div> 
  
   <script> 
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCKvuZpjYCDMqR8L__GwdwIc2ESytFh887j6hp0wUoB3YO8VDmBEw4Nn8vziHoJNX0/exec?get_json=1"; 
+    // VAŽNO: URL mora imati na kraju &callback=pustiRezultate kako bi JSONP radio ispravno
+    const GOOGLE_SCRIPT_URL = "https://google.com"; 
  
     const CATEGORIES = [ 
       "Žene - Pištolj", 
@@ -317,21 +318,13 @@
       "Muškarci - MK pištolj/revolver" 
     ]; 
  
-    async function loadResults() { 
-      try { 
-        const response = await fetch(GOOGLE_SCRIPT_URL); 
-        const results = await response.json(); 
-        renderLive(results); 
- 
-        const status = document.getElementById("liveStatus"); 
-        if (status) { 
-          status.textContent = "Poslednje osvežavanje: " + new Date().toLocaleTimeString("sr-RS"); 
-        } 
-      } catch (error) { 
-        console.error(error); 
-        const status = document.getElementById("liveStatus"); 
-        if (status) { status.textContent = "Privremeni prekid veze sa strelištem. Pokušavam ponovo..."; } 
-      } 
-    } 
- 
-    function medalForPlace(place) { 
+    // Glavna funkcija koja koristi JSONP metod umesto fetch-a
+    function loadResults() { 
+      // Brišemo stari script tag ako postoji da ne gomilamo elemente u memoriji
+      const staritTag = document.getElementById("jsonpScript");
+      if (staritTag) { staritTag.remove(); }
+
+      const script = document.createElement("script"); 
+      script.id = "jsonpScript";
+      // Dodajemo timestamp na kraj URL-a da nateramo pretraživač da uvek vuče sveže podatke (izbegavamo keširanje)
+      script.src = GOOGLE_SCRIPT_URL + "&_ts=" + new Date().getTime(); 
