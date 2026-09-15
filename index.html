@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Trofej - Uživo Rezultati</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #16324f;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; color: #16324f; font-size: 24px; }
+        .live-indicator {
+            background-color: #ff4d4d;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #16324f;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f1f1; }
+        .loading { text-align: center; padding: 20px; font-style: italic; color: #777; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>SK TROFEJ — UŽIVO REZULTATI</h1>
+        <div class="live-indicator">UŽIVO</div>
+    </div>
+
+    <div id="loading" class="loading">Učitavanje rezultata sa servera...</div>
+    
+    <table id="resultsTable" style="display: none;">
+        <thead>
+            <tr>
+                <th>Poz.</th>
+                <th>Takmičar</th>
+                <th>Kategorija</th>
+                <th>Krugovi</th>
+                <th>Muševi</th>
+                <th>Rezultat</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody">
+            <!-- Podaci iz Google tabele će se učitati ovde -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // ZAMENITE OVAJ LINK VAŠIM STVARNIM GOOGLE APPS SCRIPT EXEC LINKOM
+    const GOOGLE_SCRIPT_URL = "https://google.com";
+
+    async function fetchLiveResults() {
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL);
+            const data = await response.json();
+            
+            const tableBody = document.getElementById("resultsBody");
+            const loadingDiv = document.getElementById("loading");
+            const table = document.getElementById("resultsTable");
+            
+            // Čišćenje prethodnog sadržaja tabele
+            tableBody.innerHTML = "";
+            
+            // Pretpostavka je da getResults() vraća niz objekata ili niz nizova. 
+            // Prilagođeno formatu: [ {ID, Takmičar, Kategorija, Krugovi, Muševi, Rezultat, Vreme}, ... ]
+            data.forEach((row, index) => {
+                const tr = document.createElement("tr");
+                
+                tr.innerHTML = `
+                    <td><strong>${index + 1}.</strong></td>
+                    <td>${row.Takmičar || row[1] || ''}</td>
+                    <td>${row.Kategorija || row[2] || ''}</td>
+                    <td>${row.Krugovi || row[3] || 0}</td>
+                    <td>${row.Muševi || row[4] || 0}</td>
+                    <td><strong>${row.Rezultat || row[5] || 0}</strong></td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            
+            // Sakrij natpis za učitavanje i prikaži tabelu
+            loadingDiv.style.display = "none";
+            table.style.display = "table";
+            
+        } catch (error) {
+            console.error("Greška pri osvežavanju podataka:", error);
+            document.getElementById("loading").innerText = "Greška pri povezivanju sa bazom. Pokušavamo ponovo...";
+        }
+    }
+
+    // Pokreni odmah pri učitavanju stranice
+    fetchLiveResults();
+
+    // Automatski osvežavaj tabelu na svakih 10 sekundi (10000 milisekundi)
+    setInterval(fetchLiveResults, 10000);
+</script>
+
+</body>
+</html>
