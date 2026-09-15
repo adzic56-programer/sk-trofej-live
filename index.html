@@ -305,28 +305,1546 @@
       <div id="liveResults"></div> 
   </div> 
  
-  <script> 
-    // VAŽNO: JSONP zahteva funkciju definisanu na globalnom nivou
-    window.obradiRezultateSaGooglea = function(results) { 
-      renderLive(results); 
+  <script>
  
-      const status = document.getElementById("liveStatus"); 
-      if (status) { 
-        status.textContent = "Poslednje osvežavanje: " + new Date().toLocaleTimeString("sr-RS"); 
-      } 
-    };
+ 
+ 
+    const VIEW = "live"; 
+ 
+ 
+    let latestResults = {}; 
+ 
+ 
+    /* ================================================= 
+       KATEGORIJE 
+       ================================================= */ 
+ 
+    const CATEGORIES = [ 
+ 
+      "Žene - Pištolj", 
+ 
+      "Žene - Revolver", 
+ 
+      "Žene - MK pištolj/revolver", 
+ 
+      "Muškarci - Pištolj", 
+ 
+      "Muškarci - Revolver", 
+ 
+      "Muškarci - MK pištolj/revolver" 
+ 
+    ]; 
+ 
+ 
+    /* ================================================= 
+       POZIV SERVERA 
+       ================================================= */ 
+ 
+    function callServer( 
+      functionName, 
+      ...args 
+    ) { 
+ 
+      return new Promise( 
+        ( 
+          resolve, 
+          reject 
+        ) => { 
+ 
+          google.script.run 
+ 
+            .withSuccessHandler( 
+              resolve 
+            ) 
+ 
+            .withFailureHandler( 
+              reject 
+            ) 
+ 
+            [functionName]( 
+              ...args 
+            ); 
+ 
+        } 
+      ); 
+ 
+    } 
+ 
+ 
+    
+    /* ================================================= 
+       UČITAVANJE 
+       ================================================= */
 
-    async function loadResults() { 
-      try { 
-        // Uklanjamo prethodni script tag ako postoji od prošlog refresha
-        const stariScript = document.getElementById("jsonp-skripta");
-        if (stariScript) {
-          stariScript.remove();
+    async function loadResults() {
+
+      if (VIEW !== "live") {
+        return;
+      }
+
+      try {
+
+        const response = await fetch(
+          "/api/results",
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Accept": "application/json"
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `API greška: ${response.status}`
+          );
         }
 
-        // Kreiramo dinamički script tag koji zaobilazi CORS filtere pretraživača
-        const script = document.createElement("script");
-        script.id = "jsonp-skripta";
-        script.src = "https://google.com"; 
-        
-        script.onerror = function() {
+        const results = await response.json();
+
+        latestResults = results;
+
+        renderLive(results);
+
+        const status =
+          document.getElementById(
+            "liveStatus"
+          );
+
+        if (status) {
+
+          status.textContent =
+            "Poslednje osvežavanje: " +
+            new Date().toLocaleTimeString(
+              "sr-RS"
+            );
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "Greška pri učitavanju rezultata:",
+          error
+        );
+
+        const status =
+          document.getElementById(
+            "liveStatus"
+          );
+
+        if (status) {
+
+          status.textContent =
+            "Greška pri učitavanju rezultata.";
+
+        }
+
+      }
+
+    }
+
+    /* ================================================= 
+       MEDALJE 
+       ================================================= */ 
+ 
+    function medalForPlace( 
+      place 
+    ) { 
+ 
+      if ( 
+        place === 1 
+      ) { 
+ 
+        return "🥇"; 
+ 
+      } 
+ 
+ 
+      if ( 
+        place === 2 
+      ) { 
+ 
+        return "🥈"; 
+ 
+      } 
+ 
+ 
+      if ( 
+        place === 3 
+      ) { 
+ 
+        return "🥉"; 
+ 
+      } 
+ 
+ 
+      return ""; 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       LIVE TABELA 
+       ================================================= */ 
+ 
+    function renderLive( 
+      results 
+    ) { 
+ 
+      const container = 
+        document.getElementById( 
+          "liveResults" 
+        ); 
+ 
+ 
+      if (!container) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      let html = ""; 
+ 
+ 
+      CATEGORIES.forEach( 
+        category => { 
+ 
+          const list = 
+            results[ 
+              category 
+            ] || []; 
+ 
+ 
+          html += ` 
+ 
+            <section 
+              class="category" 
+            > 
+ 
+              <div 
+                class="category-title" 
+              > 
+ 
+                <h2> 
+                  ${escapeHtml( 
+                    category 
+                  )} 
+                </h2> 
+ 
+                <div 
+                  class="category-count" 
+                > 
+ 
+                  ${list.length} 
+ 
+                  ${ 
+                    list.length === 1 
+                      ? "TAKMIČAR" 
+                      : "TAKMIČARA" 
+                  } 
+ 
+                </div> 
+ 
+              </div> 
+ 
+          `; 
+ 
+ 
+          if ( 
+            list.length === 0 
+          ) { 
+ 
+            html += ` 
+ 
+              <div 
+                class="table-wrap" 
+              > 
+ 
+                <div 
+                  class="empty" 
+                > 
+                  Još nema rezultata. 
+                </div> 
+ 
+              </div> 
+ 
+            `; 
+ 
+          } else { 
+ 
+ 
+            html += ` 
+ 
+              <div 
+                class="table-wrap" 
+              > 
+ 
+                <table> 
+ 
+                  <thead> 
+ 
+                    <tr> 
+ 
+                      <th> 
+                        PLASMAN 
+                      </th> 
+ 
+                      <th> 
+                        TAKMIČAR 
+                      </th> 
+ 
+                      <th> 
+                        KRUGOVI 
+                      </th> 
+ 
+                      <th> 
+                        MUŠEVI 
+                      </th> 
+ 
+                      <th> 
+                        REZULTAT 
+                      </th> 
+ 
+                    </tr> 
+ 
+                  </thead> 
+ 
+                  <tbody> 
+ 
+            `; 
+ 
+ 
+            list.forEach( 
+              ( 
+                item, 
+                index 
+              ) => { 
+ 
+                const place = 
+                  index + 1; 
+ 
+ 
+                let rowClass = 
+                  ""; 
+ 
+ 
+                if ( 
+                  place === 1 
+                ) { 
+ 
+                  rowClass = 
+                    "first"; 
+ 
+                } else if ( 
+                  place === 2 
+                ) { 
+ 
+                  rowClass = 
+                    "second"; 
+ 
+                } 
+ 
+ 
+                const medal = 
+                  medalForPlace( 
+                    place 
+                  ); 
+ 
+ 
+                html += ` 
+ 
+                  <tr 
+                    class="${rowClass}" 
+                  > 
+ 
+                    <td 
+                      class="place" 
+                    > 
+ 
+                      ${ 
+                        medal 
+                          ? `<span class="medal">${medal}</span>` 
+                          : "" 
+                      } 
+ 
+                      ${place}. 
+ 
+                    </td> 
+ 
+ 
+                    <td 
+                      class="name" 
+                    > 
+ 
+                      ${escapeHtml( 
+                        item.ime 
+                      )} 
+ 
+                    </td> 
+ 
+ 
+                    <td 
+                      class="number" 
+                    > 
+ 
+                      ${item.krugovi} 
+ 
+                    </td> 
+ 
+ 
+                    <td 
+                      class="number" 
+                    > 
+ 
+                      ${item.musevi} 
+ 
+                    </td> 
+ 
+ 
+                    <td 
+                      class="score" 
+                    > 
+ 
+                      ${item.rezultat} 
+ 
+                    </td> 
+ 
+                  </tr> 
+ 
+                `; 
+ 
+              } 
+            ); 
+ 
+ 
+            html += ` 
+ 
+                  </tbody> 
+ 
+                </table> 
+ 
+              </div> 
+ 
+            `; 
+ 
+          } 
+ 
+ 
+          html += ` 
+ 
+            </section> 
+ 
+          `; 
+ 
+        } 
+      ); 
+ 
+ 
+      container.innerHTML = 
+        html; 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       ADMIN 
+       ================================================= */ 
+ 
+    async function loadAdmin() { 
+ 
+      try { 
+ 
+        const results = 
+          await callServer( 
+            "getResults" 
+          ); 
+ 
+ 
+        latestResults = 
+          results; 
+ 
+        renderAdmin( 
+          results 
+        ); 
+ 
+ 
+      } catch (error) { 
+ 
+        showAdminMessage( 
+          error.message || 
+          String(error), 
+          true 
+        ); 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       ADMIN TABELA 
+       ================================================= */ 
+ 
+    function renderAdmin( 
+      results 
+    ) { 
+ 
+      const tbody = 
+        document.getElementById( 
+          "adminResults" 
+        ); 
+ 
+ 
+      if (!tbody) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      const all = []; 
+ 
+ 
+      CATEGORIES.forEach( 
+        category => { 
+ 
+          ( 
+            results[ 
+              category 
+            ] || [] 
+          ).forEach( 
+            item => { 
+ 
+              all.push( 
+                item 
+              ); 
+ 
+            } 
+          ); 
+ 
+        } 
+      ); 
+ 
+ 
+      if ( 
+        all.length === 0 
+      ) { 
+ 
+        tbody.innerHTML = ` 
+ 
+          <tr> 
+ 
+            <td 
+              colspan="7" 
+              class="empty" 
+            > 
+              Nema unetih rezultata. 
+            </td> 
+ 
+          </tr> 
+ 
+        `; 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      tbody.innerHTML = 
+        all 
+          .map( 
+            ( 
+              item, 
+              index 
+            ) => { 
+ 
+              return ` 
+ 
+                <tr> 
+ 
+                  <td> 
+                    ${index + 1} 
+                  </td> 
+ 
+                  <td> 
+                    ${escapeHtml( 
+                      item.ime 
+                    )} 
+ 
+                  </td> 
+ 
+                  <td> 
+                    ${escapeHtml( 
+                      item.kategorija 
+                    )} 
+ 
+                  </td> 
+ 
+                  <td> 
+                    ${item.krugovi} 
+                  </td> 
+ 
+                  <td> 
+                    ${item.musevi} 
+                  </td> 
+ 
+                  <td> 
+                    <strong> 
+                      ${item.rezultat} 
+                    </strong> 
+                  </td> 
+ 
+                  <td> 
+ 
+                    <button 
+                      onclick="editResult('${item.id}')" 
+                    > 
+                      IZMENI 
+                    </button> 
+ 
+                    <button 
+                      class="danger" 
+                      onclick="deleteResultConfirm('${item.id}')" 
+                    > 
+                      OBRIŠI 
+                    </button> 
+ 
+                  </td> 
+ 
+                </tr> 
+ 
+              `; 
+ 
+            } 
+          ) 
+          .join(""); 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       SAČUVAJ 
+       ================================================= */ 
+ 
+    async function saveResult() { 
+ 
+      const password = 
+        document 
+          .getElementById( 
+            "password" 
+          ) 
+          .value 
+          .trim(); 
+ 
+ 
+      const ime = 
+        document 
+          .getElementById( 
+            "ime" 
+          ) 
+          .value 
+          .trim(); 
+ 
+ 
+      const kategorija = 
+        document 
+          .getElementById( 
+            "kategorija" 
+          ) 
+          .value; 
+ 
+ 
+      const krugovi = 
+        document 
+          .getElementById( 
+            "krugovi" 
+          ) 
+          .value; 
+ 
+ 
+      const musevi = 
+        document 
+          .getElementById( 
+            "musevi" 
+          ) 
+          .value; 
+ 
+ 
+      const editId = 
+        document 
+          .getElementById( 
+            "editId" 
+          ) 
+          .value; 
+ 
+ 
+      if (!password) { 
+ 
+        showAdminMessage( 
+          "Unesite admin lozinku.", 
+          true 
+        ); 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      if (!ime) { 
+ 
+        showAdminMessage( 
+          "Unesite ime i prezime.", 
+          true 
+        ); 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      const data = { 
+ 
+        ime: 
+          ime, 
+ 
+        kategorija: 
+          kategorija, 
+ 
+        krugovi: 
+          krugovi, 
+ 
+        musevi: 
+          musevi 
+ 
+      }; 
+ 
+ 
+      try { 
+ 
+        showAdminMessage( 
+          "Čuvanje..." 
+        ); 
+ 
+ 
+        let results; 
+ 
+ 
+        if ( 
+          editId 
+        ) { 
+ 
+          data.id = 
+            editId; 
+ 
+ 
+          results = 
+            await callServer( 
+              "updateResult", 
+              data, 
+              password 
+            ); 
+ 
+        } else { 
+ 
+          results = 
+            await callServer( 
+              "addResult", 
+              data, 
+              password 
+            ); 
+ 
+        } 
+ 
+ 
+        latestResults = 
+          results; 
+ 
+ 
+        renderAdmin( 
+          results 
+        ); 
+ 
+ 
+        clearForm(); 
+ 
+ 
+        showAdminMessage( 
+          "Rezultat je uspešno sačuvan." 
+        ); 
+ 
+ 
+      } catch (error) { 
+ 
+        showAdminMessage( 
+          error.message || 
+          String(error), 
+          true 
+        ); 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       IZMENA 
+       ================================================= */ 
+ 
+    function editResult( 
+      id 
+    ) { 
+ 
+      let item = 
+        null; 
+ 
+ 
+      Object.keys( 
+        latestResults 
+      ).forEach( 
+        category => { 
+ 
+          const found = 
+            ( 
+              latestResults[ 
+                category 
+              ] || [] 
+            ).find( 
+              x => 
+                String( 
+                  x.id 
+                ) === 
+                String(id) 
+            ); 
+ 
+ 
+          if (found) { 
+ 
+            item = 
+              found; 
+ 
+          } 
+ 
+        } 
+      ); 
+ 
+ 
+      if (!item) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      document 
+        .getElementById( 
+          "editId" 
+        ) 
+        .value = 
+        item.id; 
+ 
+ 
+      document 
+        .getElementById( 
+          "ime" 
+        ) 
+        .value = 
+        item.ime; 
+ 
+ 
+      document 
+        .getElementById( 
+          "kategorija" 
+        ) 
+        .value = 
+        item.kategorija; 
+ 
+ 
+      document 
+        .getElementById( 
+          "krugovi" 
+        ) 
+        .value = 
+        item.krugovi; 
+ 
+ 
+      document 
+        .getElementById( 
+          "musevi" 
+        ) 
+        .value = 
+        item.musevi; 
+ 
+ 
+      window.scrollTo({ 
+ 
+        top: 
+          0, 
+ 
+        behavior: 
+          "smooth" 
+ 
+      }); 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       BRISANJE 
+       ================================================= */ 
+ 
+    async function deleteResultConfirm( 
+      id 
+    ) { 
+ 
+      if ( 
+        !confirm( 
+          "Da li sigurno želite da obrišete ovaj rezultat?" 
+        ) 
+      ) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      const password = 
+        document 
+          .getElementById( 
+            "password" 
+          ) 
+          .value 
+          .trim(); 
+ 
+ 
+      if (!password) { 
+ 
+        showAdminMessage( 
+          "Unesite admin lozinku.", 
+          true 
+        ); 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      try { 
+ 
+        const results = 
+          await callServer( 
+            "deleteResult", 
+            id, 
+            password 
+          ); 
+ 
+ 
+        latestResults = 
+          results; 
+ 
+ 
+        renderAdmin( 
+          results 
+        ); 
+ 
+ 
+        showAdminMessage( 
+          "Rezultat je obrisan." 
+        ); 
+ 
+ 
+      } catch (error) { 
+ 
+        showAdminMessage( 
+          error.message || 
+          String(error), 
+          true 
+        ); 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       NOVI UNOS 
+       ================================================= */ 
+ 
+    function clearForm() { 
+ 
+      document 
+        .getElementById( 
+          "editId" 
+        ) 
+        .value = 
+        ""; 
+ 
+ 
+      document 
+        .getElementById( 
+          "ime" 
+        ) 
+        .value = 
+        ""; 
+ 
+ 
+      document 
+        .getElementById( 
+          "krugovi" 
+        ) 
+        .value = 
+        ""; 
+ 
+ 
+      document 
+        .getElementById( 
+          "musevi" 
+        ) 
+        .value = 
+        ""; 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       ADMIN PORUKA 
+       ================================================= */ 
+ 
+    function showAdminMessage( 
+      text, 
+      error 
+    ) { 
+ 
+      const el = 
+        document.getElementById( 
+          "adminMessage" 
+        ); 
+ 
+ 
+      if (!el) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      el.textContent = 
+        text; 
+ 
+ 
+      el.classList.add( 
+        "show" 
+      ); 
+ 
+ 
+      if (error) { 
+ 
+        el.style.background = 
+          "#481c1c"; 
+ 
+        el.style.color = 
+          "#ffd1d1"; 
+ 
+      } else { 
+ 
+        el.style.background = 
+          "#102b3f"; 
+ 
+        el.style.color = 
+          "#d1e2ed"; 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       TV AUTO SKROL 
+       ================================================= */ 
+ 
+    let autoScrollRunning = 
+      true; 
+ 
+ 
+    let autoScrollFrame = 
+      null; 
+ 
+ 
+    let scrollPauseUntil = 
+      0; 
+ 
+ 
+    /* 
+      BRZINA: 
+ 
+      80  = sporije 
+      100 = normalno 
+      120 = brzo 
+      140 = još brže 
+    */ 
+ 
+    const SCROLL_SPEED = 
+      50; 
+ 
+ 
+    /* 
+      Pauza na početku: 
+      2 sekunde 
+    */ 
+ 
+    const TOP_PAUSE = 
+      2000; 
+ 
+ 
+    /* 
+      Pauza na kraju: 
+      2 sekunde 
+    */ 
+ 
+    const BOTTOM_PAUSE = 
+      2000; 
+ 
+ 
+    function startAutoScroll() { 
+ 
+      if ( 
+        VIEW !== "live" 
+      ) { 
+ 
+        return; 
+ 
+      } 
+ 
+ 
+      autoScrollRunning = 
+        true; 
+ 
+      scrollPauseUntil = 
+        performance.now() + 
+        TOP_PAUSE; 
+ 
+      let previousTime = 
+        performance.now(); 
+ 
+ 
+      function loop( 
+        currentTime 
+      ) { 
+ 
+ 
+        if ( 
+          !autoScrollRunning 
+        ) { 
+ 
+          previousTime = 
+            currentTime; 
+ 
+          autoScrollFrame = 
+            requestAnimationFrame( 
+              loop 
+            ); 
+ 
+          return; 
+ 
+        } 
+ 
+ 
+        /* 
+          Čekanje na vrhu. 
+        */ 
+ 
+        if ( 
+          currentTime < 
+          scrollPauseUntil 
+        ) { 
+ 
+          previousTime = 
+            currentTime; 
+ 
+          autoScrollFrame = 
+            requestAnimationFrame( 
+              loop 
+            ); 
+ 
+          return; 
+ 
+        } 
+ 
+ 
+        const delta = 
+          ( 
+            currentTime - 
+            previousTime 
+          ) / 1000; 
+ 
+        previousTime = 
+          currentTime; 
+ 
+ 
+        const maxScroll = 
+          document 
+            .documentElement 
+            .scrollHeight - 
+          window.innerHeight; 
+ 
+ 
+        /* 
+          Ako nema dovoljno 
+          sadržaja za skrol. 
+        */ 
+ 
+        if ( 
+          maxScroll <= 5 
+        ) { 
+ 
+          autoScrollFrame = 
+            requestAnimationFrame( 
+              loop 
+            ); 
+ 
+          return; 
+ 
+        } 
+ 
+ 
+        const currentY = 
+          window.scrollY; 
+ 
+ 
+        /* 
+          KRAJ STRANICE 
+        */ 
+ 
+        if ( 
+          currentY >= 
+          maxScroll - 2 
+        ) { 
+ 
+          autoScrollRunning = 
+            false; 
+ 
+ 
+          setTimeout( 
+            () => { 
+ 
+              window.scrollTo({ 
+ 
+                top: 
+                  0, 
+ 
+                behavior: 
+                  "auto" 
+ 
+              }); 
+ 
+ 
+              scrollPauseUntil = 
+                performance.now() + 
+                TOP_PAUSE; 
+ 
+              autoScrollRunning = 
+                true; 
+ 
+            }, 
+            BOTTOM_PAUSE 
+          ); 
+ 
+ 
+          autoScrollFrame = 
+            requestAnimationFrame( 
+              loop 
+            ); 
+ 
+          return; 
+ 
+        } 
+ 
+ 
+        /* 
+          NORMALNO KRETANJE 
+        */ 
+ 
+        window.scrollBy( 
+          0, 
+          SCROLL_SPEED * 
+          delta 
+        ); 
+ 
+        autoScrollFrame = 
+          requestAnimationFrame( 
+            loop 
+          ); 
+ 
+      } 
+ 
+ 
+      if ( 
+        autoScrollFrame 
+      ) { 
+ 
+        cancelAnimationFrame( 
+          autoScrollFrame 
+        ); 
+ 
+      } 
+ 
+ 
+      autoScrollFrame = 
+        requestAnimationFrame( 
+          loop 
+        ); 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       PAUZA / NASTAVI 
+       ================================================= */ 
+ 
+    function toggleAutoScroll() { 
+ 
+      autoScrollRunning = 
+        !autoScrollRunning; 
+ 
+ 
+      const indicator = 
+        document.getElementById( 
+          "tvIndicator" 
+        ); 
+ 
+ 
+      const button = 
+        document.querySelector( 
+          ".tv-controls button" 
+        ); 
+ 
+ 
+      if ( 
+        autoScrollRunning 
+      ) { 
+ 
+        if (indicator) { 
+ 
+          indicator.textContent = 
+            "TV REŽIM • AUTO SKROL"; 
+ 
+        } 
+ 
+ 
+        if (button) { 
+ 
+          button.textContent = 
+            "PAUZA"; 
+ 
+        } 
+ 
+      } else { 
+ 
+        if (indicator) { 
+ 
+          indicator.textContent = 
+            "TV REŽIM • PAUZA"; 
+ 
+        } 
+ 
+ 
+        if (button) { 
+ 
+          button.textContent = 
+            "NASTAVI"; 
+ 
+        } 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       VRH 
+       ================================================= */ 
+ 
+    function resetScroll() { 
+ 
+      window.scrollTo({ 
+ 
+        top: 
+          0, 
+ 
+        behavior: 
+          "auto" 
+ 
+      }); 
+ 
+ 
+      autoScrollRunning = 
+        false; 
+ 
+      setTimeout( 
+        () => { 
+ 
+          scrollPauseUntil = 
+            performance.now() + 
+            TOP_PAUSE; 
+ 
+          autoScrollRunning = 
+            true; 
+ 
+        }, 
+        100 
+      ); 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       CEO EKRAN 
+       ================================================= */ 
+ 
+    function toggleFullscreen() { 
+ 
+      if ( 
+        !document.fullscreenElement 
+      ) { 
+ 
+        document 
+          .documentElement 
+          .requestFullscreen() 
+          .catch( 
+            () => {} 
+          ); 
+ 
+      } else { 
+ 
+        document 
+          .exitFullscreen() 
+          .catch( 
+            () => {} 
+          ); 
+ 
+      } 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       ZAŠTITA HTML 
+       ================================================= */ 
+ 
+    function escapeHtml( 
+      value 
+    ) { 
+ 
+      return String( 
+        value 
+      ) 
+ 
+        .replace( 
+          /&/g, 
+          "&amp;" 
+        ) 
+ 
+        .replace( 
+          /</g, 
+          "&lt;" 
+        ) 
+ 
+        .replace( 
+          />/g, 
+          "&gt;" 
+        ) 
+ 
+        .replace( 
+          /"/g, 
+          "&quot;" 
+        ) 
+ 
+        .replace( 
+          /'/g, 
+          "&#039;" 
+        ); 
+ 
+    } 
+ 
+ 
+    /* ================================================= 
+       START 
+       ================================================= */ 
+ 
+    window.addEventListener( 
+      "load", 
+      () => { 
+ 
+        if ( 
+          VIEW === "live" 
+        ) { 
+ 
+          /* 
+            Rezultati se učitavaju 
+            odmah. 
+          */ 
+ 
+          loadResults(); 
+ 
+ 
+          /* 
+            Stranica se postavlja 
+            na sam vrh. 
+ 
+            Nakon 0.3 sekunde 
+            AUTO SKROL KREĆE SAM. 
+          */ 
+ 
+          setTimeout( 
+            () => { 
+ 
+              window.scrollTo({ 
+ 
+                top: 
+                  0, 
+ 
+                behavior: 
+                  "auto" 
+ 
+              }); 
+ 
+ 
+              startAutoScroll(); 
+ 
+            }, 
+            300 
+          ); 
+ 
+ 
+        } else { 
+ 
+          loadAdmin(); 
+ 
+        } 
+ 
+      } 
+    ); 
+ 
+ 
+    /* ================================================= 
+       LIVE OSVEŽAVANJE 
+       ================================================= */ 
+ 
+    if ( 
+      VIEW === "live" 
+    ) { 
+ 
+      setInterval( 
+        loadResults, 
+        2000 
+      ); 
+ 
+    } 
+ 
+ 
+  
+</script>
+</body>
+</html>
