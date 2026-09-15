@@ -306,7 +306,7 @@
   </div> 
  
   <script> 
-    // VAŽNO: URL mora imati na kraju &callback=pustiRezultate kako bi JSONP radio ispravno
+    // Čist bazni URL bez lepljenja parametara direktno u string
     const GOOGLE_SCRIPT_URL = "https://google.com"; 
  
     const CATEGORIES = [ 
@@ -318,13 +318,22 @@
       "Muškarci - MK pištolj/revolver" 
     ]; 
  
-    // Glavna funkcija koja koristi JSONP metod umesto fetch-a
-    function loadResults() { 
-      // Brišemo stari script tag ako postoji da ne gomilamo elemente u memoriji
-      const staritTag = document.getElementById("jsonpScript");
-      if (staritTag) { staritTag.remove(); }
+    // Glavna funkcija za povlačenje podataka sa rešenim CORS problemom
+    async function loadResults() { 
+      try { 
+        // Generisanje ispravnog URL-a sa parametrima za eksterne zahteve
+        const finalUrl = `${GOOGLE_SCRIPT_URL}?get_json=1`;
 
-      const script = document.createElement("script"); 
-      script.id = "jsonpScript";
-      // Dodajemo timestamp na kraj URL-a da nateramo pretraživač da uvek vuče sveže podatke (izbegavamo keširanje)
-      script.src = GOOGLE_SCRIPT_URL + "&_ts=" + new Date().getTime(); 
+        const response = await fetch(finalUrl, {
+          method: "GET",
+          mode: "cors",
+          headers: {
+            "Content-Type": "text/plain"
+          }
+        }); 
+        
+        if (!response.ok) {
+          throw new Error("Mrežni odgovor nije bio u redu.");
+        }
+
+        const results = await response.json(); 
