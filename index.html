@@ -153,7 +153,47 @@
       0%, 45% { opacity: 1; } 
       50%, 100% { opacity: .25; } 
     } 
- 
+ /* MOBILNI PRIKAZ STATUSA */
+@media (max-width: 600px) {
+
+  .top-header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand img {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .brand-text h1 {
+    font-size: 21px;
+  }
+
+  .brand-text .subtitle {
+    font-size: 9px;
+  }
+
+  .live {
+    padding: 6px 10px;
+    font-size: 10px;
+    gap: 5px;
+    border-radius: 20px;
+    box-shadow: none;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  #liveCompetitionStatus {
+    white-space: normal;
+    text-align: center;
+  }
+
+}
     /* ================================================== 
        STATUS 
        ================================================== */ 
