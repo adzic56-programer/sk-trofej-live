@@ -408,6 +408,43 @@
 
         renderLive(results);
 
+                // UČITAVANJE STATUSA TAKMIČENJA
+        try {
+          const statusResponse = await fetch(
+            "/api/status",
+            {
+              method: "GET",
+              cache: "no-store"
+            }
+          );
+
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+
+            const liveLabel = document.getElementById(
+              "liveCompetitionStatus"
+            );
+
+            const liveDot = document.getElementById("liveDot");
+
+            if (liveLabel) {
+              liveLabel.textContent =
+                statusData.status === "ZAVRŠENO"
+                  ? "TAKMIČENJE JE ZAVRŠENO"
+                  : "UŽIVO";
+            }
+
+            if (liveDot) {
+              liveDot.style.display =
+                statusData.status === "ZAVRŠENO"
+                  ? "none"
+                  : "inline-block";
+            }
+          }
+        } catch (statusError) {
+          console.error("Greška statusa:", statusError);
+        }
+
         const status =
           document.getElementById(
             "liveStatus"
